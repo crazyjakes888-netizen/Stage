@@ -1,0 +1,482 @@
+/* Stage Lights -- a lighting desk, so it commits to one dark look. You cannot
+   judge what a lamp is doing to a colour on a pale page, and every colour here
+   is painted explicitly rather than inherited from the host. */
+
+:root {
+  --ground:   #0b0b0f;
+  --panel:    #15151b;
+  --raised:   #1d1d25;
+  --line:     #2a2a34;
+  --line-dim: #202028;
+  --text:     #ececf2;
+  --dim:      #94949f;
+  --faint:    #63636f;
+  --amber:    #ffc247;
+  --amber-dk: #7a5a1c;
+  --r:        10px;
+
+  --display: "Barlow Condensed", "Oswald", "Arial Narrow", system-ui, sans-serif;
+  --body:    "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font: 400 14px/1.45 var(--body);
+  overflow: hidden;
+}
+
+.sr {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+button { font: inherit; color: inherit; }
+
+svg { width: 18px; height: 18px; fill: currentColor; flex: 0 0 auto; }
+.ico-stroke { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+
+/* ------------------------------------------------------------- top bar */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  padding-top: env(safe-area-inset-top, 0px);
+  height: calc(58px + env(safe-area-inset-top, 0px));
+  background: linear-gradient(180deg, #17171e, #101016);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+.brand__mark {
+  width: 0; height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-bottom: 17px solid var(--amber);
+  filter: drop-shadow(0 0 7px rgba(255, 194, 71, .55));
+}
+
+.brand__name {
+  font: 700 21px/1 var(--display);
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.topbar__actions { display: flex; gap: 8px; margin-left: auto; }
+
+.tbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  cursor: pointer;
+  font: 600 12.5px/1 var(--display);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color .14s, border-color .14s, background .14s;
+}
+
+.tbtn:hover { color: var(--text); border-color: #3a3a46; }
+.tbtn.is-active { color: #17130a; background: var(--amber); border-color: var(--amber); }
+.tbtn:focus-visible, .gear:focus-visible, .panel__x:focus-visible, .pick:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------- layout */
+
+.layout {
+  height: calc(100% - 58px - env(safe-area-inset-top, 0px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 372px;
+  min-height: 0;
+}
+
+/* The stage sits low and left of centre with room around it, rather than
+   filling its half edge to edge. */
+.stagearea {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 46px 76px 34px 32px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.stagebox {
+  position: relative;
+  width: 100%;
+  max-width: 880px;
+  aspect-ratio: 8 / 5;
+  max-height: 100%;
+  border-radius: var(--r);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 60px -24px #000, inset 0 0 0 1px #000;
+}
+
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+#stage.is-dragging { cursor: grabbing; }
+
+.note {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translate(-50%, 6px);
+  margin: 0;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(14, 14, 19, .93);
+  border: 1px solid var(--amber-dk);
+  color: var(--text);
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+
+.note.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* the gear, on the right, halfway down */
+.gear {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--dim);
+  cursor: pointer;
+  transition: color .14s, background .14s, border-color .14s;
+}
+
+.gear:hover { color: var(--text); border-color: #3a3a46; }
+.gear.is-active { color: #17130a; background: var(--amber); border-color: var(--amber); }
+.gear svg { width: 20px; height: 20px; }
+
+/* ------------------------------------------------------------- panels */
+
+.panel {
+  position: absolute;
+  z-index: 6;
+  width: min(330px, calc(100% - 48px));
+  padding: 14px 16px 16px;
+  background: #13131a;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: 0 26px 64px -20px #000;
+}
+
+.panel--settings { right: 68px; top: 50%; transform: translateY(-50%); }
+.panel--picker { left: 50%; top: 14px; transform: translateX(-50%); width: min(392px, calc(100% - 48px)); }
+
+.panel__head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+
+.panel__head h2 {
+  margin: 0;
+  flex: 1 1 auto;
+  font: 700 15px/1 var(--display);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.panel__x {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--dim);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.panel__x:hover { color: var(--text); }
+.panel__hint { margin: 0 0 12px; font-size: 11.5px; color: var(--faint); line-height: 1.4; }
+
+/* --------------------------------------------------------- the picker */
+
+.picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 2px 5px;
+  background: var(--raised);
+  border: 1px solid transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color .14s, background .14s;
+}
+
+.pick:hover { border-color: var(--amber); background: #23232c; }
+.pick__art { width: 34px; height: 54px; }
+.pick__name { font-size: 10px; color: var(--dim); letter-spacing: .02em; }
+
+/* ------------------------------------------------------- the switches */
+
+.switches { display: flex; flex-direction: column; gap: 6px; }
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--raised);
+  border: 1px solid var(--line-dim);
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.switch:hover { border-color: #343440; }
+.switch.is-on { border-color: var(--amber-dk); }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.switch__dot {
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  opacity: .28;
+  box-shadow: 0 0 0 1px #000 inset;
+}
+
+.switch.is-on .switch__dot { opacity: 1; box-shadow: 0 0 9px currentColor; }
+
+.switch__name {
+  flex: 1 1 auto;
+  font: 600 13px/1 var(--display);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.switch.is-on .switch__name { color: var(--text); }
+
+/* the track/knob switch on the right of each row */
+.switch__state {
+  position: relative;
+  width: 34px; height: 19px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #34343f;
+  transition: background .16s;
+}
+
+.switch__state::after {
+  content: "";
+  position: absolute;
+  top: 2.5px; left: 2.5px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: #8b8b96;
+  transition: transform .16s, background .16s;
+}
+
+.switch.is-on .switch__state { background: var(--amber-dk); }
+.switch.is-on .switch__state::after { transform: translateX(15px); background: var(--amber); }
+.switch input:focus-visible + .switch__dot { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+/* ---------------------------------------------------------- the mixer */
+
+.mixerpane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+
+.mixerpane__title {
+  margin: 0;
+  padding: 14px 16px 10px;
+  font: 700 13px/1 var(--display);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.mixer {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mixer__empty { margin: 4px 2px; font-size: 12px; color: var(--faint); }
+
+.card {
+  --lamp: #ffffff;
+  padding: 11px 13px 13px;
+  background: var(--raised);
+  border: 1px solid var(--line-dim);
+  border-left: 3px solid var(--lamp);
+  border-radius: 9px;
+}
+
+.card__head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+
+.card__swatch {
+  width: 15px; height: 15px;
+  border-radius: 4px;
+  background: var(--lamp);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .16), 0 0 10px -1px var(--lamp);
+  flex: 0 0 auto;
+}
+
+.card__title {
+  margin: 0;
+  flex: 1 1 auto;
+  font: 600 14px/1 var(--display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.card__hex {
+  font-size: 10.5px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+}
+
+/* ------------------------------------------------------------ the bars */
+
+.bar { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }
+.bar:last-child { margin-bottom: 0; }
+
+.bar__label {
+  width: 21px;
+  flex: 0 0 auto;
+  font: 600 11px/1 var(--display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.bar__value {
+  width: 38px;
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: 11px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.bar__range {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 9px;
+  border-radius: 999px;
+  background: #24242d;
+  outline: none;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55);
+}
+
+.bar__range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: #f6f6fa;
+  border: 1px solid #000;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .7);
+  cursor: pointer;
+}
+
+.bar__range::-moz-range-thumb {
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: #f6f6fa;
+  border: 1px solid #000;
+  cursor: pointer;
+}
+
+.bar__range:focus-visible { box-shadow: 0 0 0 2px var(--amber); }
+
+/* the mixer bar reads as one object with the three channels above it */
+.bar__range--hue { height: 12px; }
+.bar__range--level { height: 12px; }
+.bar__range--hue + .bar__value, .bar__range--level + .bar__value { color: var(--text); }
+
+/* --------------------------------------------------------- responsive */
+
+@media (max-width: 1080px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  .stagearea { padding: 40px 68px 28px 20px; }
+}
+
+@media (max-width: 860px) {
+  body { overflow: auto; }
+  .layout { height: auto; grid-template-columns: 1fr; }
+  .stagearea { padding: 24px 64px 20px 16px; }
+  .stagebox { max-width: none; max-height: none; }
+  .mixerpane { border-left: 0; border-top: 1px solid var(--line); }
+  .mixer { overflow: visible; }
+  .panel--settings { right: 16px; left: 16px; width: auto; transform: none; top: 50%; }
+  .panel--picker { left: 16px; right: 16px; width: auto; transform: none; }
+  .topbar { padding: 0 12px; gap: 10px; }
+  .brand__name { font-size: 18px; }
+  .tbtn { padding: 8px 11px; font-size: 11.5px; }
+}
+
+/* At phone width the brand and both buttons cannot share one row, so the
+   actions drop to a second row rather than pushing the page sideways. */
+@media (max-width: 620px) {
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-block: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
+  .topbar__actions { margin-left: 0; width: 100%; }
+  .tbtn { flex: 1 1 0; justify-content: center; min-width: 0; }
+  .layout { height: auto; }
+  .stagearea { padding: 18px 58px 16px 12px; }
+  .gear { right: 8px; width: 38px; height: 38px; }
+  .panel { width: auto; left: 12px; right: 12px; }
+  .panel--settings, .panel--picker { left: 12px; right: 12px; width: auto; transform: none; }
+  .mixerpane__title { padding: 12px 12px 8px; }
+  .mixer { padding: 0 12px 16px; }
+}

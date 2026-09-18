@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Stage Lights</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" />
+<link rel="stylesheet" href="css/stage.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand__mark" aria-hidden="true"></span>
+    <span class="brand__name">Stage Lights</span>
+  </div>
+  <div class="topbar__actions">
+    <button id="btn-chars" class="tbtn" type="button" aria-expanded="false" aria-controls="picker-panel">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7.5" r="3.6"/><path d="M4.8 20.5c0-4 3.2-6.6 7.2-6.6s7.2 2.6 7.2 6.6z"/></svg>
+      Characters
+    </button>
+    <button id="btn-settings" class="tbtn" type="button" aria-expanded="false" aria-controls="settings-panel">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="ico-stroke"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.3"/><circle cx="10" cy="17" r="2.3"/></svg>
+      Stage settings
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <section class="stagearea">
+    <div class="stagebox">
+      <canvas id="stage" aria-label="The stage. Drag a character to move it, tap it to take it off."></canvas>
+    </div>
+    <p id="note" class="note" role="status" aria-live="polite"></p>
+
+    <button id="gear" class="gear" type="button" aria-expanded="false" aria-controls="settings-panel" title="Lighting systems">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="ico-stroke"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.6M12 18.6v2.6M4.5 4.5l1.9 1.9M17.6 17.6l1.9 1.9M2.8 12h2.6M18.6 12h2.6M4.5 19.5l1.9-1.9M17.6 6.4l1.9-1.9"/></svg>
+      <span class="sr">Lighting systems</span>
+    </button>
+
+    <div id="picker-panel" class="panel panel--picker" hidden>
+      <header class="panel__head">
+        <h2>Put one on the stage</h2>
+        <button class="panel__x" type="button" data-close="picker-panel" aria-label="Close">&times;</button>
+      </header>
+      <p class="panel__hint">Tap one to add it. On the stage, drag to move it and tap it once to take it off.</p>
+      <div id="picker" class="picker"></div>
+    </div>
+
+    <div id="settings-panel" class="panel panel--settings" hidden>
+      <header class="panel__head">
+        <h2>Lighting systems</h2>
+        <button class="panel__x" type="button" data-close="settings-panel" aria-label="Close">&times;</button>
+      </header>
+      <p class="panel__hint">Switching one off takes it off the rig entirely &mdash; its beam leaves the stage and its bars leave the mixer.</p>
+      <div id="switches" class="switches"></div>
+    </div>
+  </section>
+
+  <aside class="mixerpane">
+    <h2 class="mixerpane__title">Colour mixer</h2>
+    <div id="mixer" class="mixer"></div>
+  </aside>
+
+</main>
+
+<script src="js/color.js"></script>
+<script src="js/light.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/stage.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
