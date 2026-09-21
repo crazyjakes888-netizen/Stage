@@ -378,6 +378,13 @@ svg { width: 18px; height: 18px; fill: currentColor; flex: 0 0 auto; }
   letter-spacing: .04em;
 }
 
+.card__note {
+  margin: -4px 0 9px;
+  font-size: 10.5px;
+  line-height: 1.32;
+  color: var(--faint);
+}
+
 /* ------------------------------------------------------------ the bars */
 
 .bar { display: flex; align-items: center; gap: 9px; margin-bottom: 7px; }

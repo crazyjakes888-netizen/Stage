@@ -80,6 +80,9 @@
     head.appendChild(hex);
     card.appendChild(head);
 
+    /* what this angle is for -- the whole reason there are four of them */
+    if (light.note) card.appendChild(el('p', 'card__note', light.note));
+
     var bars = {};
 
     function pushChannel(key, name, cls) {
@@ -182,7 +185,7 @@
     }
     if (!any) {
       var empty = el('p', 'mixer__empty',
-        'No lighting systems on the rig. Turn one on in stage settings.');
+        'Nothing on the rig. Turn an angle back on in stage settings.');
       host.appendChild(empty);
     }
   }
@@ -208,7 +211,9 @@
       dot.style.background = Color.rgbToHex(light.r, light.g, light.b);
       row.appendChild(input);
       row.appendChild(dot);
-      row.appendChild(el('span', 'switch__name', light.label));
+      var name = el('span', 'switch__name', light.label);
+      if (light.note) row.title = light.note;
+      row.appendChild(name);
       row.appendChild(el('span', 'switch__state'));
       row.classList.toggle('is-on', light.enabled);
       host.appendChild(row);

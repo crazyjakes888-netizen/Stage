@@ -92,56 +92,122 @@ describe('the rig');
   ok(rig.every(function (l) { return l.enabled; }), 'all on the rig to begin with');
   ok(rig.every(function (l) { return l.r === 255 && l.g === 255 && l.b === 255; }),
      'and all white, so the first colour is yours');
-  var xs = rig.map(function (l) { return l.x; });
-  ok(xs.every(function (x, i) { return i === 0 || x > xs[i - 1]; }), 'spread left to right across the stage');
-  ok(xs[0] > 0 && xs[xs.length - 1] < 1, 'and none of them hangs off the edge');
-  ok(rig.every(function (l, i) { return l.label === 'Light ' + (i + 1); }), 'each one labelled');
+  ok(rig.map(function (l) { return l.id; }).join(',') === 'front,top,side,back',
+     'one for each of the four angles a real rig is hung at');
+  ok(rig.every(function (l) { return l.label && l.note; }), 'each one named and explained');
 }
 
-describe('how far a lamp reaches');
+/* Facing only: how much of an angle lands on a surface turned a given way,
+ * before anything is asked about where its beams actually point. This is the
+ * half that makes an angle an angle. */
+function facing(angleId, normal) {
+  var lamps = Light.prepare({ id: angleId }, { w: 800, h: 500 });
+  var total = 0;
+  for (var i = 0; i < lamps.length; i++) {
+    var d = lamps[i].dx * normal[0] + lamps[i].dy * normal[1] + lamps[i].dz * normal[2];
+    if (d > 0) total += d;
+  }
+  return total;
+}
+
+function unit(v) {
+  var l = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+  return [v[0] / l, v[1] / l, v[2] / l];
+}
+
+var FACE  = [0, 0, 1];                      /* the wall, and a figure's front */
+var DECK  = [0, 1, 0];                      /* the floor */
+var LEFT  = unit([-0.85, 0.06, 0.5]);       /* the left side of a figure */
+var RIGHT = unit([0.85, 0.06, 0.5]);
+var HEAD  = unit([0, 0.68, 0.73]);          /* the top of a head */
+
+describe('the four angles actually do different things');
 {
-  var geom = { w: 600, h: 400, floorY: 264 };
-  var L = Light.prepare(Light.create(0, 1), geom);   /* one lamp, dead centre */
-  var directlyUnder = Light.reach(L, L.lx, geom.floorY);
-  ok(directlyUnder > 0, 'the lamp lights the floor below it');
-  near(directlyUnder, 1, 0.02, 'at about 1.0, whatever size the picture is');
+  /* front of house: straight at the faces, which is why it is flat */
+  ok(facing('front', FACE) > facing('top', FACE) &&
+     facing('front', FACE) > facing('side', FACE) &&
+     facing('front', FACE) > facing('back', FACE),
+     'front of house puts more on a face than any other angle',
+     'front ' + facing('front', FACE).toFixed(2));
+  ok(Math.abs(facing('front', LEFT) - facing('front', RIGHT)) < 0.01,
+     'and it lands the same on both sides of a figure, so it shows no shape');
 
-  ok(Light.reach(L, L.lx + 90, geom.floorY) < directlyUnder, 'dimmer off to the side');
-  ok(Light.reach(L, L.lx + 600, geom.floorY) === 0, 'and nothing at all outside the beam');
-  ok(Light.reach(L, L.lx, L.ly - 20) === 0, 'nothing above the lamp either');
+  /* overhead: down the top, barely anything on a vertical surface */
+  ok(facing('top', DECK) > 6 * facing('top', FACE),
+     'overhead puts many times more on the deck than on a vertical face',
+     'deck ' + facing('top', DECK).toFixed(2) + ' vs face ' + facing('top', FACE).toFixed(2));
+  ok(facing('top', HEAD) > facing('top', FACE),
+     'and more on the top of a head than on the face below it');
 
-  /* the same lamp normalises the same way in a bigger picture */
-  var big = Light.prepare(Light.create(0, 1), { w: 1200, h: 800, floorY: 528 });
-  near(Light.reach(big, big.lx, 528), directlyUnder, 0.02, 'a bigger picture is lit the same');
+  /* side: the whole point is that it lands on the sides and not the front */
+  ok(facing('side', LEFT) > 2 * facing('side', FACE),
+     'side light puts far more on the side of a figure than on its front',
+     'side ' + facing('side', LEFT).toFixed(2) + ' vs front ' + facing('side', FACE).toFixed(2));
+  ok(Math.abs(facing('side', LEFT) - facing('side', RIGHT)) < 0.01,
+     'and the two booms balance, one wing each');
 
-  /* Falloff. A plain 1/d^2 runs away to infinity at the lamp itself, which on
-   * a picture this shallow blew the top of the wall out to solid white, so the
-   * bottom of the fraction is softened. Two things have to hold: it still
-   * behaves like inverse-square out across the stage, and it is bounded at the
-   * lamp instead of running away. */
-  var throwDist = geom.floorY - L.ly;
-  var far1 = Light.reach(L, L.lx, L.ly + throwDist * 2);
-  var far2 = Light.reach(L, L.lx, L.ly + throwDist * 4);
-  near(far1 / far2, 4, 0.45, 'out across the stage, twice the throw is about a quarter of the light');
+  /* back: nothing at all on the face, which is what a silhouette is */
+  ok(facing('back', FACE) === 0, 'back light puts nothing whatever on a face',
+     String(facing('back', FACE)));
+  ok(facing('back', DECK) > 1, 'but plenty on the deck behind them',
+     facing('back', DECK).toFixed(2));
+  ok(facing('back', HEAD) > 0.2, 'and it catches the top of a head',
+     facing('back', HEAD).toFixed(2));
+  ok(facing('back', LEFT) > 0 && facing('back', LEFT) < 0.3,
+     'and only just clips the outside edge, which is the rim',
+     facing('back', LEFT).toFixed(3));
 
-  var atLamp = Light.reach(L, L.lx, L.ly + 0.001);
-  ok(atLamp < 3 * directlyUnder, 'and right at the lamp it is bounded, not infinite',
-     (atLamp / directlyUnder).toFixed(2) + 'x the level on the floor');
+  /* every direction is a unit vector, or the facing test is meaningless */
+  var allUnit = true;
+  Light.ANGLES.forEach(function (a) {
+    Light.prepare({ id: a.id }, { w: 800, h: 500 }).forEach(function (L) {
+      var len = Math.sqrt(L.dx * L.dx + L.dy * L.dy + L.dz * L.dz);
+      if (Math.abs(len - 1) > 1e-9) allUnit = false;
+    });
+  });
+  ok(allUnit, 'every lamp aims along a unit vector');
+}
 
+describe('where a beam lands');
+{
+  var geom = { w: 800, h: 500 };
+
+  /* a cone is normalised to exactly 1.0 at the spot it is aimed at */
+  var top = Light.prepare({ id: 'top' }, geom);
+  var mid = top[1];
+  var aimX = 0.50 * geom.w, aimY = 0.84 * geom.h;
+  near(Light.reach(mid, aimX, aimY), 1, 0.001, 'a beam is exactly full where it is aimed');
+  ok(Light.reach(mid, aimX + 400, aimY) === 0, 'and nothing at all outside the beam');
+  ok(Light.reach(mid, aimX, -400) === 0, 'nothing behind the lamp either');
+
+  /* bounded at the lamp rather than running away to infinity */
+  var atLamp = Light.reach(mid, mid.lx, mid.ly + 0.001);
+  ok(atLamp < 3, 'right at the lamp it is bounded, not infinite', atLamp.toFixed(2));
+
+  /* falls off, and still behaves like inverse-square out across the stage */
   var falling = true, last = Infinity;
-  for (var d = 0.05; d <= 4; d += 0.05) {
-    var v = Light.reach(L, L.lx, L.ly + throwDist * d);
+  for (var d = 0.05; d <= 3; d += 0.05) {
+    var v = Light.reach(mid, mid.lx, mid.ly + (aimY - mid.ly) * d);
     if (v > last + 1e-9) falling = false;
     last = v;
   }
-  ok(falling, 'and it only ever gets dimmer as you move away');
+  ok(falling, 'and it only ever gets dimmer further from the lamp');
 
-  /* brightness scales the colour that is carried, not the reach */
-  var half = Light.prepare({ r: 255, g: 255, b: 255, brightness: 0.5, x: 0.5,
-                             height: 0.16, spread: 0.52, softness: 0.62 }, geom);
-  near(half.r, Light.prepare({ r: 255, g: 255, b: 255, brightness: 1, x: 0.5,
-                               height: 0.16, spread: 0.52, softness: 0.62 }, geom).r / 2,
-       1e-9, 'brightness halves the light the lamp carries');
+  /* the wash has no edge to fall outside of -- it covers the stage */
+  var front = Light.prepare({ id: 'front' }, geom)[0];
+  ok(front.kind === 0, 'front of house is a wash, not a beam');
+  ok(Light.reach(front, geom.w * 0.5, geom.h * 0.56) > 0.9, 'brightest in the middle of the stage');
+  ok(Light.reach(front, 0, 0) > 0, 'and still reaching the corners');
+
+  /* a bigger picture is lit the same */
+  var big = Light.prepare({ id: 'top' }, { w: 1600, h: 1000 })[1];
+  near(Light.reach(big, 0.5 * 1600, 0.84 * 1000), 1, 0.001, 'a bigger picture is lit the same');
+
+  /* the whole rig prepares into one flat list, tagged with its system */
+  var all = Light.prepareRig(Light.createRig(), geom);
+  ok(all.length === 8, 'the four systems come to eight lamps in total', String(all.length));
+  ok(all.every(function (L, i) { return i === 0 || L.system >= all[i - 1].system; }),
+     'each lamp knows which system it belongs to');
 }
 
 describe('the display curve');
