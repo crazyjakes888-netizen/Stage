@@ -37,50 +37,81 @@ describe('colour conversions');
   ok(Color.rgbToHex(Color.hsvToRgb(hsv)) === '#ef7a1c', 'hsv round-trips');
 }
 
+describe('the mixer bar has white on it');
+{
+  /* A plain hue strip is coloured at every position, so there is no white
+   * anywhere on it -- and white is the most common thing to put in a lantern.
+   * The left end of the bar is a zone of white instead. */
+  ok(Color.MIX_WHITE > 0, 'the bar starts with a run of white');
+  ok(Color.MIX_MAX === Color.MIX_WHITE + 359, 'and then one position per degree of hue',
+     String(Color.MIX_MAX));
+
+  var anyColour = { r: 40, g: 180, b: 220 };
+  for (var p = 0; p < Color.MIX_WHITE; p++) {
+    var w = Color.mixToRgb(p, anyColour);
+    if (!(w.r === w.g && w.g === w.b)) { ok(false, 'every position in the white zone is white'); break; }
+    if (p === Color.MIX_WHITE - 1) ok(true, 'every position in the white zone is white');
+  }
+  ok(Color.mixLabel(0) === 'White', 'and the bar says so rather than showing a degree');
+  ok(Color.mixLabel(Color.MIX_WHITE) === '0\u00b0', 'past it, it reads in degrees');
+
+  /* white set on the three channel bars puts the mixer in the white zone */
+  ok(Color.isMixWhite(Color.rgbToMix({ r: 255, g: 255, b: 255 })), 'pure white reads as white');
+  ok(Color.isMixWhite(Color.rgbToMix({ r: 128, g: 128, b: 128 })), 'so does a grey');
+  ok(Color.isMixWhite(Color.rgbToMix({ r: 250, g: 250, b: 255 })), 'and so does a near-white');
+  ok(!Color.isMixWhite(Color.rgbToMix({ r: 255, g: 0, b: 0 })), 'but a real colour does not');
+
+  /* dragging to white keeps how bright the lamp was, since level is its own bar */
+  var half = Color.hsvToRgb(200, 0.8, 0.5);
+  var halfWhite = Color.mixToRgb(0, half);
+  ok(halfWhite.r === halfWhite.g && halfWhite.g === halfWhite.b, 'dragging to white gives a neutral');
+  near(Color.rgbToHsv(halfWhite).v, 0.5, 0.01, 'at the brightness it already had');
+
+  /* and coming back out of white gives a full colour, not another grey */
+  var backOut = Color.mixToRgb(Color.MIX_WHITE + 120, { r: 255, g: 255, b: 255 });
+  ok(backOut.g > backOut.r && backOut.g > backOut.b, 'sliding back out of white gives a colour again');
+  near(Color.rgbToHsv(backOut).s, 1, 0.01, 'at full saturation, since white had none to keep');
+}
+
 describe('the mixer bar and the three channel bars agree');
 {
   /* Moving the mixer swings all three channels; moving a channel slides the
-   * mixer to the hue that mix landed on. Both directions have to agree or the
+   * mixer to wherever that mix landed. Both directions have to agree or the
    * bars drift apart as you work. */
-  function mixerTo(rgb, hue) {
-    var hsv = Color.rgbToHsv(rgb);
-    var s = hsv.s < 0.06 ? 1 : hsv.s;
-    var v = hsv.v < 0.06 ? 1 : hsv.v;
-    return Color.hsvToRgb(hue, s, v);
-  }
-  function mixerShows(rgb) { return Color.rgbToHsv(rgb).h; }
+  var red = { r: 255, g: 0, b: 0 };
+  ok(Color.rgbToMix(red) === Color.MIX_WHITE, 'a pure red mix sits at the start of the spectrum');
 
-  var start = { r: 255, g: 0, b: 0 };
-  near(mixerShows(start), 0, 0.01, 'a pure red mix puts the mixer at 0 degrees');
-
-  var toGreen = mixerTo(start, 120);
-  ok(toGreen.r === 0 && toGreen.g === 255 && toGreen.b === 0,
-     'dragging the mixer to 120 swings the channels to pure green');
-  near(mixerShows(toGreen), 120, 0.01, 'and the mixer still reads 120 back');
+  var green = Color.mixToRgb(Color.MIX_WHITE + 120, red);
+  ok(green.r === 0 && green.g === 255 && green.b === 0,
+     'dragging the mixer 120 degrees along swings the channels to pure green');
+  ok(Color.rgbToMix(green) === Color.MIX_WHITE + 120, 'and the mixer reads that position back');
 
   /* a half-lit colour keeps its level when the mixer is swung */
   var dim = Color.hsvToRgb(0, 1, 0.5);
-  var dimBlue = mixerTo(dim, 240);
+  var dimBlue = Color.mixToRgb(Color.MIX_WHITE + 240, dim);
   near(Color.rgbToHsv(dimBlue).v, 0.5, 0.01, 'swinging the mixer keeps how light the colour was');
-  near(mixerShows(dimBlue), 240, 0.01, 'and lands on the hue asked for');
+  near(Color.rgbToHsv(dimBlue).h, 240, 0.5, 'and lands on the hue asked for');
 
   /* channels moved by hand: the mixer follows */
-  var byHand = { r: 0, g: 128, b: 255 };
-  near(mixerShows(byHand), 210, 0.5, 'setting the channels by hand slides the mixer to that hue');
+  near(Color.rgbToMix({ r: 0, g: 128, b: 255 }) - Color.MIX_WHITE, 210, 1,
+       'setting the channels by hand slides the mixer to that hue');
 
-  /* grey has no hue to swing, so the mixer is given a saturation to work with */
-  var grey = { r: 128, g: 128, b: 128 };
-  var greyToRed = mixerTo(grey, 0);
-  ok(greyToRed.r > greyToRed.g && greyToRed.g === greyToRed.b,
-     'the mixer still does something from a grey');
+  /* a black has nothing to swing, so the bar is given something to work with */
+  var fromBlack = Color.mixToRgb(Color.MIX_WHITE + 60, { r: 0, g: 0, b: 0 });
+  ok(fromBlack.r > 200 && fromBlack.g > 200 && fromBlack.b < 40,
+     'the mixer still does something from a black');
 
-  /* round-trip over the whole circle */
+  /* round-trip over the whole bar */
   var stable = true;
-  for (var h = 0; h < 360; h += 7) {
-    var back = mixerShows(mixerTo({ r: 200, g: 40, b: 90 }, h));
-    if (Math.min(Math.abs(back - h), 360 - Math.abs(back - h)) > 1.2) stable = false;
+  for (var pos = Color.MIX_WHITE; pos <= Color.MIX_MAX; pos += 7) {
+    if (Color.rgbToMix(Color.mixToRgb(pos, { r: 200, g: 40, b: 90 })) !== pos) stable = false;
   }
-  ok(stable, 'the two bars agree all the way round the circle');
+  ok(stable, 'the two bars agree at every position along the spectrum');
+
+  /* the white zone lands in the middle of itself, so the knob sits on white */
+  var wp = Color.rgbToMix({ r: 255, g: 255, b: 255 });
+  ok(wp > 0 && wp < Color.MIX_WHITE, 'the knob parks inside the white zone, not on its edge',
+     String(wp));
 }
 
 /* ------------------------------------------------------------------- lamps */

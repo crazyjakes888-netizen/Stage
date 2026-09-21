@@ -64,12 +64,19 @@ Five bars per lighting system, stacked:
 | | |
 |---|---|
 | **R / G / B** | each channel, 0–255 |
-| **Mix** | the same colour as one hue, across the full spectrum |
+| **Mix** | white at the left, then the full spectrum |
 | **Lvl** | brightness, for that lighting system only |
 
 The mix bar and the three channel bars are the same colour seen two ways, so
 they stay in step: drag the mix bar and all three channels swing with it; drag
-any channel and the mix bar slides to whatever hue that mix landed on.
+any channel and the mix bar slides to whatever that mix landed on.
+
+The left end of the mix bar is a run of white. A plain hue strip is coloured at
+every position along it, so there is no white anywhere on one — and white is
+the most common thing to put in a lantern. Dragging into the white zone keeps
+whatever brightness the lamp had, since level is its own bar; dragging back out
+gives a full colour again. Setting the three channels level with each other
+slides the knob back into the white zone on its own.
 
 ## Layout
 
@@ -94,8 +101,8 @@ Plain scripts, no modules, so it works straight from `file://`.
 node tests/math.test.js
 ```
 
-57 checks over the colour maths, the mixer/channel interlock in both
-directions, beam falloff, the display curve, the reflectance behaviour above,
+71 checks over the colour maths, the mixer bar's white zone, the
+mixer/channel interlock in both directions, beam falloff, the display curve, the reflectance behaviour above,
 and that the four angles genuinely behave differently — front of house puts
 more on a face than any other angle, overhead puts many times more on the deck
 than on a vertical face, side light puts far more on the side of a figure than

@@ -40,6 +40,20 @@
 
   /* -------------------------------------------------------- the mixer */
 
+  /* The mixer bar's own picture of itself: a solid run of white, then the
+   * spectrum across whatever is left. The stops come from the same numbers the
+   * bar reads, so the picture and the behaviour cannot drift apart. */
+  var mixTrack = (function () {
+    var w = Color.mixWhiteFraction() * 100;
+    var stops = ['#ffffff 0%', '#ffffff ' + w.toFixed(2) + '%'];
+    var hues = [0, 60, 120, 180, 240, 300, 360];
+    for (var i = 0; i < hues.length; i++) {
+      var at = w + (100 - w) * (hues[i] / 360);
+      stops.push(Color.rgbToHex(Color.hsvToRgb(hues[i] % 360, 1, 1)) + ' ' + at.toFixed(2) + '%');
+    }
+    return 'linear-gradient(90deg,' + stops.join(',') + ')';
+  })();
+
   function bar(opts) {
     var row = el('div', 'bar');
     var lab = el('span', 'bar__label', opts.label);
@@ -103,14 +117,9 @@
 
     bars.hue = bar({
       label: 'Mix', aria: light.label + ' colour mixer', cls: 'bar__range--hue',
-      id: light.id + '-hue', min: 0, max: 359, value: 0,
-      onInput: function (h) {
-        var hsv = Color.rgbToHsv(light.r, light.g, light.b);
-        /* a grey or a black has no hue to swing, so give the mixer something
-         * to work with rather than have it do nothing */
-        var s = hsv.s < 0.06 ? 1 : hsv.s;
-        var v = hsv.v < 0.06 ? 1 : hsv.v;
-        var rgb = Color.hsvToRgb(h, s, v);
+      id: light.id + '-hue', min: 0, max: Color.MIX_MAX, value: 0,
+      onInput: function (pos) {
+        var rgb = Color.mixToRgb(pos, light);
         light.r = rgb.r; light.g = rgb.g; light.b = rgb.b;
         syncFromMixer();
         changed();
@@ -136,7 +145,7 @@
       bars.r.setTrack('linear-gradient(90deg,#0c0c10,#ff3b30)');
       bars.g.setTrack('linear-gradient(90deg,#0c0c10,#34d05c)');
       bars.b.setTrack('linear-gradient(90deg,#0c0c10,#3d7bff)');
-      bars.hue.setTrack('linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)');
+      bars.hue.setTrack(mixTrack);
       bars.brightness.setTrack('linear-gradient(90deg,#0c0c10,' + hexStr + ')');
       card.style.setProperty('--lamp', hexStr);
     }
@@ -146,8 +155,8 @@
       bars.r.set(light.r, String(light.r));
       bars.g.set(light.g, String(light.g));
       bars.b.set(light.b, String(light.b));
-      var h = Color.rgbToHsv(light.r, light.g, light.b).h;
-      bars.hue.set(Math.round(h), Math.round(h) + '°');
+      var pos = Color.rgbToMix(light);
+      bars.hue.set(pos, Color.mixLabel(pos));
       paint();
     }
 
@@ -156,7 +165,7 @@
       bars.r.set(light.r, String(light.r));
       bars.g.set(light.g, String(light.g));
       bars.b.set(light.b, String(light.b));
-      bars.hue.setText(bars.hue.input.value + '°');
+      bars.hue.setText(Color.mixLabel(Number(bars.hue.input.value)));
       paint();
     }
 

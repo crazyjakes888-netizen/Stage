@@ -215,6 +215,51 @@
     return { name: best.name, hex: best.hex, distance: bestD };
   }
 
+  /* ------------------------------------------------------------ mixer bar */
+
+  /*
+   * The mixer bar is a strip of white at the left, then the full spectrum.
+   *
+   * A plain hue strip has no white anywhere on it -- every position on it is
+   * fully coloured -- and white is the most common thing to put in a lantern,
+   * so it gets its own zone at one end rather than being reachable only by
+   * levelling the three channel bars against each other.
+   */
+  var MIX_WHITE = 30;                       /* positions 0..29 are white */
+  var MIX_HUES = 360;                       /* then one degree per position */
+  var MIX_MAX = MIX_WHITE + MIX_HUES - 1;   /* so the bar runs 0..389 */
+
+  function isMixWhite(pos) { return pos < MIX_WHITE; }
+
+  /** Where the white zone ends, as a fraction of the bar. */
+  function mixWhiteFraction() { return MIX_WHITE / (MIX_MAX + 1); }
+
+  /**
+   * Bar position -> colour. Keeps how saturated and how light the colour
+   * already was, so sliding along the bar swings the hue without also
+   * changing how deep or how bright it is.
+   */
+  function mixToRgb(pos, current) {
+    var hsv = rgbToHsv(current);
+    /* a black or a grey has nothing to swing, so give the bar something to
+     * work with rather than have it appear to do nothing */
+    var v = hsv.v < 0.06 ? 1 : hsv.v;
+    if (pos < MIX_WHITE) return hsvToRgb(0, 0, v);
+    var sat = hsv.s < 0.06 ? 1 : hsv.s;
+    return hsvToRgb(pos - MIX_WHITE, sat, v);
+  }
+
+  /** Colour -> bar position. Anything with almost no colour in it reads white. */
+  function rgbToMix(rgb) {
+    var hsv = rgbToHsv(rgb);
+    if (hsv.s < 0.12) return Math.floor(MIX_WHITE / 2);
+    return MIX_WHITE + (Math.round(hsv.h) % 360);
+  }
+
+  function mixLabel(pos) {
+    return pos < MIX_WHITE ? 'White' : (Math.round(pos - MIX_WHITE) + '\u00b0');
+  }
+
   /* --------------------------------------------------------------- read-out */
 
   /**
@@ -263,6 +308,9 @@
     rgbToHsv: rgbToHsv, hsvToRgb: hsvToRgb, hueOf: hueOf, shade: shade,
     relLuminance: relLuminance, linLuminance: linLuminance, contrastRatio: contrastRatio,
     rgbToLab: rgbToLab, deltaE76: deltaE76,
-    NAMED: NAMED, nearestNamed: nearestNamed, describe: describe
+    NAMED: NAMED, nearestNamed: nearestNamed, describe: describe,
+    MIX_WHITE: MIX_WHITE, MIX_MAX: MIX_MAX, isMixWhite: isMixWhite,
+    mixWhiteFraction: mixWhiteFraction,
+    mixToRgb: mixToRgb, rgbToMix: rgbToMix, mixLabel: mixLabel
   };
 });
